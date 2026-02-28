@@ -578,11 +578,10 @@ function getMessageTextWithoutUrls(text) {
   return text.replace(/https?:\/\/[^\s]+/gi, " ").replace(/\s+/g, " ").trim();
 }
 
-function buildSenderLabel(from) {
-  if (!from) return "unknown";
-  if (from.username) return `@${from.username}`;
-  const fullName = [from.first_name, from.last_name].filter(Boolean).join(" ").trim();
-  return fullName || `user_${from.id}`;
+function buildSenderMention(from) {
+  if (!from?.id) return "Unknown User";
+  const fullName = [from.first_name, from.last_name].filter(Boolean).join(" ").trim() || "Telegram User";
+  return `<a href="tg://user?id=${from.id}">${esc(fullName)}</a>`;
 }
 
 async function handleIncomingMessage(ctx) {
@@ -615,11 +614,11 @@ async function handleIncomingMessage(ctx) {
   try {
     const shortUrl = await shortenUrl(matched.url, { expiresIn: matched.rule.expiresIn });
     const messageText = getMessageTextWithoutUrls(incomingText);
-    const sender = buildSenderLabel(ctx.from);
+    const sender = buildSenderMention(ctx.from);
     const replyLines = [
       messageText ? `Message: ${esc(messageText)}` : null,
       `Short URL: ${esc(shortUrl)}`,
-      `From: <b>${esc(sender)}</b>`
+      `From: ${sender}`
     ].filter(Boolean);
 
     await ctx.reply(panel("Auto Shortened", replyLines), {
