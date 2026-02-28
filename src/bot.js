@@ -30,7 +30,7 @@ function isGroup(ctx) {
   return ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
 }
 
-async function isAdmin(ctx) {
+async function canManageSettings(ctx) {
   if (!isGroup(ctx)) return true;
   const userId = ctx.from?.id;
   if (!userId) return false;
@@ -360,8 +360,8 @@ bot.command("autourl", async (ctx) => {
     return;
   }
 
-  if (!(await isAdmin(ctx))) {
-    await ctx.reply("Only group admins can use this command.");
+  if (!(await canManageSettings(ctx))) {
+    await ctx.reply("Only group owner or admins can change settings.");
     return;
   }
 
@@ -391,7 +391,7 @@ bot.command("autourl", async (ctx) => {
       `Mode: <b>${rule.deleteOriginal ? "yes" : "no"}</b>`,
       `Expire: <b>${rule.expiresIn ? `${rule.expiresIn}m` : "default"}</b>`
     ]),
-    { parse_mode: "HTML", ...uiKeyboard() }
+    { parse_mode: "HTML" }
   );
 });
 
@@ -403,14 +403,14 @@ bot.command("listautourl", async (ctx) => {
   }
   const rules = await listRules(ctx.chat.id);
   if (!rules.length) {
-    await ctx.reply(panel("Auto Rules", ["No rules set in this group yet."]), { parse_mode: "HTML", ...uiKeyboard() });
+    await ctx.reply(panel("Auto Rules", ["No rules set in this group yet."]), { parse_mode: "HTML" });
     return;
   }
   const lines = rules.map(
     (r) =>
       `• <code>${esc(r.domain)}</code> — <b>${r.deleteOriginal ? "yes" : "no"}</b>${r.expiresIn ? `, ${r.expiresIn}m` : ""}`
   );
-  await ctx.reply(panel("Auto Rules", lines), { parse_mode: "HTML", ...uiKeyboard() });
+  await ctx.reply(panel("Auto Rules", lines), { parse_mode: "HTML" });
 });
 
 bot.command("removeautourl", async (ctx) => {
@@ -420,8 +420,8 @@ bot.command("removeautourl", async (ctx) => {
     return;
   }
 
-  if (!(await isAdmin(ctx))) {
-    await ctx.reply("Only group admin can use this command.");
+  if (!(await canManageSettings(ctx))) {
+    await ctx.reply("Only group owner or admins can change settings.");
     return;
   }
 
@@ -432,7 +432,7 @@ bot.command("removeautourl", async (ctx) => {
   }
 
   const removed = await removeRule(ctx.chat.id, parts[1]);
-  await ctx.reply(removed ? "Rule removed." : "Rule not found.", { ...uiKeyboard() });
+  await ctx.reply(removed ? "Rule removed." : "Rule not found.");
 });
 
 bot.command("short", async (ctx) => {
@@ -459,11 +459,10 @@ bot.command("short", async (ctx) => {
     });
     await ctx.reply(panel("Short URL Ready", [`<code>${esc(shortUrl)}</code>`]), {
       parse_mode: "HTML",
-      disable_web_page_preview: true,
-      ...uiKeyboard()
+      disable_web_page_preview: true
     });
   } catch (error) {
-    await ctx.reply(`Shorten failed: ${error?.message || "unknown error"}`, { ...uiKeyboard() });
+    await ctx.reply(`Shorten failed: ${error?.message || "unknown error"}`);
   }
 });
 
@@ -476,7 +475,7 @@ bot.command("mylinks", async (ctx) => {
     const data = await listLinks({ page: 1, limit: 10, search: search || undefined, active: true });
     const links = normalizeLinkList(data);
     if (!links.length) {
-      await ctx.reply(panel("My Links", ["No links found."]), { parse_mode: "HTML", ...uiKeyboard() });
+      await ctx.reply(panel("My Links", ["No links found."]), { parse_mode: "HTML" });
       return;
     }
     const rows = links.slice(0, 10).map((l) => {
@@ -487,11 +486,10 @@ bot.command("mylinks", async (ctx) => {
     });
     await ctx.reply(panel("My Latest Links", rows), {
       parse_mode: "HTML",
-      disable_web_page_preview: true,
-      ...uiKeyboard()
+      disable_web_page_preview: true
     });
   } catch (error) {
-    await ctx.reply(`List failed: ${error?.message || "unknown error"}`, { ...uiKeyboard() });
+    await ctx.reply(`List failed: ${error?.message || "unknown error"}`);
   }
 });
 
@@ -518,10 +516,10 @@ bot.command("linkinfo", async (ctx) => {
         `Short: <code>${esc(shortUrl)}</code>`,
         `Original: ${esc(originalUrl)}`
       ]),
-      { parse_mode: "HTML", disable_web_page_preview: true, ...uiKeyboard() }
+      { parse_mode: "HTML", disable_web_page_preview: true }
     );
   } catch (error) {
-    await ctx.reply(`Link info failed: ${error?.message || "unknown error"}`, { ...uiKeyboard() });
+    await ctx.reply(`Link info failed: ${error?.message || "unknown error"}`);
   }
 });
 
@@ -546,10 +544,10 @@ bot.command("stats", async (ctx) => {
         `Total clicks: <b>${total}</b>`,
         `Unique clicks: <b>${unique}</b>`
       ]),
-      { parse_mode: "HTML", ...uiKeyboard() }
+      { parse_mode: "HTML" }
     );
   } catch (error) {
-    await ctx.reply(`Stats failed: ${error?.message || "unknown error"}`, { ...uiKeyboard() });
+    await ctx.reply(`Stats failed: ${error?.message || "unknown error"}`);
   }
 });
 
@@ -560,16 +558,16 @@ bot.command("domains", async (ctx) => {
     const data = await listDomains();
     const domains = Array.isArray(data) ? data : data?.domains || data?.items || [];
     if (!domains.length) {
-      await ctx.reply(panel("Domains", ["No domains found."]), { parse_mode: "HTML", ...uiKeyboard() });
+      await ctx.reply(panel("Domains", ["No domains found."]), { parse_mode: "HTML" });
       return;
     }
     const list = domains
       .slice(0, 20)
       .map((d) => `• <code>${esc(d.domain || d.host || d.name || d)}</code>`)
       .join("\n");
-    await ctx.reply(panel("Domains", [list]), { parse_mode: "HTML", ...uiKeyboard() });
+    await ctx.reply(panel("Domains", [list]), { parse_mode: "HTML" });
   } catch (error) {
-    await ctx.reply(`Domains failed: ${error?.message || "unknown error"}`, { ...uiKeyboard() });
+    await ctx.reply(`Domains failed: ${error?.message || "unknown error"}`);
   }
 });
 
@@ -628,15 +626,14 @@ async function handleIncomingMessage(ctx) {
     await ctx.reply(panel("Auto Shortened", replyLines), {
       parse_mode: "HTML",
       reply_parameters: { message_id: ctx.message.message_id },
-      disable_web_page_preview: true,
-      ...uiKeyboard()
+      disable_web_page_preview: true
     });
 
     if (matched.rule.deleteOriginal) {
       try {
         await ctx.deleteMessage(ctx.message.message_id);
       } catch {
-        await ctx.reply("I could not delete message. Give me delete permission.", { ...uiKeyboard() });
+        await ctx.reply("I could not delete message. Give me delete permission.");
       }
     }
   } catch (error) {
@@ -644,8 +641,7 @@ async function handleIncomingMessage(ctx) {
       `Shorten failed for ${matched.rule.domain}: ${error?.message || "unknown error"}`,
       {
         reply_parameters: { message_id: ctx.message.message_id },
-        disable_web_page_preview: true,
-        ...uiKeyboard()
+        disable_web_page_preview: true
       }
     );
   }
