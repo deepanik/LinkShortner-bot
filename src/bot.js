@@ -18,8 +18,6 @@ const COOLDOWN_MS = 5000;
 const DUPLICATE_WINDOW_MS = 45000;
 const MAX_EXPIRES_MINUTES = 10080;
 const REQUIRED_CHANNEL = process.env.REQUIRED_CHANNEL || "@BINBHAII";
-const SOURCE_CODE_URL =
-  process.env.SOURCE_CODE_URL || "https://github.com/deepanik/LinkShortner-bot/releases/tag/v1.0.0";
 const MAKER_LINK = "https://t.me/callmeshooter";
 const GROUP_POLICY_CACHE_MS = 120000;
 const groupPolicyCache = new Map();
@@ -63,8 +61,7 @@ function usageText() {
 function uiKeyboard() {
   return Markup.inlineKeyboard([
     [Markup.button.callback("Help", "ui_help"), Markup.button.callback("Rules", "ui_rules")],
-    [Markup.button.callback("Domains", "ui_domains"), Markup.button.callback("My Links", "ui_mylinks")],
-    [Markup.button.url("Source Code", SOURCE_CODE_URL)]
+    [Markup.button.callback("Domains", "ui_domains"), Markup.button.callback("My Links", "ui_mylinks")]
   ]);
 }
 
