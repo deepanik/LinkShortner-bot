@@ -18,7 +18,6 @@ const COOLDOWN_MS = 5000;
 const DUPLICATE_WINDOW_MS = 45000;
 const MAX_EXPIRES_MINUTES = 10080;
 const REQUIRED_CHANNEL = process.env.REQUIRED_CHANNEL || "@BINBHAII";
-const MAKER_LINK = "https://t.me/callmeshooter";
 const GROUP_POLICY_CACHE_MS = 120000;
 const groupPolicyCache = new Map();
 const verifiedDmUsers = new Set();
@@ -66,7 +65,7 @@ function uiKeyboard() {
 }
 
 function panel(title, bodyLines) {
-  return `<b>${title}</b>\n${bodyLines.join("\n")}\n\n<i>Hii How Are You!! <a href="${MAKER_LINK}"></a></i>`;
+  return `<b>${title}</b>\n${bodyLines.join("\n")}`;
 }
 
 function esc(value) {
@@ -619,7 +618,7 @@ async function handleIncomingMessage(ctx) {
     const sender = buildSenderLabel(ctx.from);
     const replyLines = [
       messageText ? `Message: ${esc(messageText)}` : null,
-      `Short URL: <code>${esc(shortUrl)}</code>`,
+      `Short URL: ${esc(shortUrl)}`,
       `From: <b>${esc(sender)}</b>`
     ].filter(Boolean);
 
