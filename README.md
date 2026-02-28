@@ -10,8 +10,6 @@
    - `BOT_TOKEN`
    - `SHORTNER_API_KEY`
    - `SHORTNER_BASE_URL` (default: `https://linkshortner.co`)
-   - `REQUIRED_CHANNEL` (default: `@BINBHAII`)
-   - `SOURCE_CODE_URL` (your public GitHub repo URL)
 4. Run:
    - `npm start`
 
@@ -42,3 +40,7 @@
 - DM users must join `@BINBHAII` to use the bot
 - In groups, bot must be admin and group owner must join `@BINBHAII`
 - All users are stored in SQLite at `data/users.sqlite` (user id and username)
+
+## Notes
+
+- This commit is a deploy trigger update.
