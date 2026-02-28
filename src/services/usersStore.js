@@ -27,9 +27,11 @@ async function getDb() {
         last_name TEXT,
         last_chat_id TEXT,
         last_chat_type TEXT,
+        dm_verified INTEGER NOT NULL DEFAULT 0,
         updated_at TEXT NOT NULL
       );
     `);
+    await db.exec("ALTER TABLE users ADD COLUMN dm_verified INTEGER NOT NULL DEFAULT 0;").catch(() => {});
     return db;
   })();
   return dbPromise;
@@ -60,5 +62,27 @@ export async function upsertUser(from, chat) {
       chat?.type || null,
       now
     ]
+  );
+}
+
+export async function isDmVerified(userId) {
+  if (!userId) return false;
+  const db = await getDb();
+  const row = await db.get("SELECT dm_verified FROM users WHERE user_id = ?", [userId]);
+  return Number(row?.dm_verified || 0) === 1;
+}
+
+export async function setDmVerified(userId, verified) {
+  if (!userId) return;
+  const db = await getDb();
+  await db.run(
+    `
+    INSERT INTO users (user_id, dm_verified, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      dm_verified = excluded.dm_verified,
+      updated_at = excluded.updated_at;
+    `,
+    [userId, verified ? 1 : 0, new Date().toISOString()]
   );
 }

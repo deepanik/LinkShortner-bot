@@ -2,7 +2,7 @@ import "dotenv/config";
 import { Markup, Telegraf } from "telegraf";
 import { getLink, getStats, listDomains, listLinks, shortenUrl } from "./services/shortenerApi.js";
 import { listRules, normalizeDomain, removeRule, upsertRule } from "./services/rulesStore.js";
-import { upsertUser } from "./services/usersStore.js";
+import { isDmVerified, setDmVerified, upsertUser } from "./services/usersStore.js";
 import { extractUrls, pickMatchedUrl } from "./utils/urlMatch.js";
 
 const botToken = process.env.BOT_TOKEN;
@@ -22,6 +22,9 @@ const SOURCE_CODE_URL = process.env.SOURCE_CODE_URL || "https://github.com/deepa
 const MAKER_LINK = "https://t.me/callmeshooter";
 const GROUP_POLICY_CACHE_MS = 120000;
 const groupPolicyCache = new Map();
+const verifiedDmUsers = new Set();
+const dmJoinPromptCooldown = new Map();
+const JOIN_PROMPT_COOLDOWN_MS = 15 * 1000;
 let botInfoCache;
 
 function isGroup(ctx) {
@@ -53,7 +56,6 @@ function usageText() {
     "• <b>no</b>: keep original and reply with short URL",
     `• <b>exp</b>: 1-${MAX_EXPIRES_MINUTES} minutes`,
     "",
-    `<i>Made by <a href="${MAKER_LINK}">t.me/callmeshooter</a></i>`
   ].join("\n");
 }
 
@@ -66,7 +68,7 @@ function uiKeyboard() {
 }
 
 function panel(title, bodyLines) {
-  return `<b>${title}</b>\n${bodyLines.join("\n")}\n\n<i>Made by <a href="${MAKER_LINK}">t.me/callmeshooter</a></i>`;
+  return `<b>${title}</b>\n${bodyLines.join("\n")}\n\n<i>Hii How Are You!! <a href="${MAKER_LINK}"></a></i>`;
 }
 
 function esc(value) {
@@ -117,14 +119,47 @@ async function isChannelJoined(ctx, userId) {
     const member = await ctx.telegram.getChatMember(REQUIRED_CHANNEL, userId);
     return isMemberStatus(member);
   } catch {
-    return false;
+    return null;
   }
 }
 
 async function ensureDmJoinPolicy(ctx) {
   if (ctx.chat?.type !== "private") return true;
-  const joined = await isChannelJoined(ctx, ctx.from?.id);
-  if (joined) return true;
+  const userId = ctx.from?.id;
+  const now = Date.now();
+  if (verifiedDmUsers.has(userId)) {
+    const joined = await isChannelJoined(ctx, userId);
+    if (joined === false) {
+      verifiedDmUsers.delete(userId);
+      await setDmVerified(userId, false);
+    } else {
+      return true;
+    }
+  } else {
+    const dbVerified = await isDmVerified(userId);
+    if (dbVerified) {
+      verifiedDmUsers.add(userId);
+      const joined = await isChannelJoined(ctx, userId);
+      if (joined === false) {
+        verifiedDmUsers.delete(userId);
+        await setDmVerified(userId, false);
+      } else {
+        return true;
+      }
+    }
+  }
+
+  const joined = await isChannelJoined(ctx, userId);
+  if (joined === true) {
+    verifiedDmUsers.add(userId);
+    await setDmVerified(userId, true);
+    return true;
+  }
+  if (joined === null) return true;
+
+  const lastPromptAt = dmJoinPromptCooldown.get(userId) || 0;
+  if (now - lastPromptAt < JOIN_PROMPT_COOLDOWN_MS) return false;
+  dmJoinPromptCooldown.set(userId, now);
   await ctx.reply(
     panel("Join Required", [
       `To use this bot in DM, join <b>${esc(REQUIRED_CHANNEL)}</b> first.`,
@@ -132,7 +167,10 @@ async function ensureDmJoinPolicy(ctx) {
     ]),
     {
       parse_mode: "HTML",
-      ...Markup.inlineKeyboard([[Markup.button.url(`Join ${REQUIRED_CHANNEL}`, channelLink(REQUIRED_CHANNEL))]])
+      ...Markup.inlineKeyboard([
+        [Markup.button.url(`Join ${REQUIRED_CHANNEL}`, channelLink(REQUIRED_CHANNEL))],
+        [Markup.button.callback("Verify", "verify_join")]
+      ])
     }
   );
   return false;
@@ -160,7 +198,7 @@ async function ensureGroupPolicy(ctx) {
       return false;
     }
     const ownerJoined = await isChannelJoined(ctx, owner.id);
-    if (!ownerJoined) {
+    if (ownerJoined === false) {
       await ctx.reply(`Group owner must join ${REQUIRED_CHANNEL} first.`);
       groupPolicyCache.set(chatId, { ok: false, time: now });
       return false;
@@ -299,6 +337,22 @@ bot.action("ui_mylinks", async (ctx) => {
   } catch (error) {
     await renderPanelInPlace(ctx, "My Links", [`List failed: ${esc(error?.message || "unknown error")}`]);
   }
+});
+
+bot.action("verify_join", async (ctx) => {
+  await ctx.answerCbQuery("Checking...");
+  const userId = ctx.from?.id;
+  const joined = await isChannelJoined(ctx, userId);
+  if (joined !== true) {
+    await renderPanelInPlace(ctx, "Join Required", [
+      `To use this bot in DM, join <b>${esc(REQUIRED_CHANNEL)}</b> first.`,
+      "After joining, tap Verify again."
+    ]);
+    return;
+  }
+  verifiedDmUsers.add(userId);
+  await setDmVerified(userId, true);
+  await renderPanelInPlace(ctx, "Verified", ["Access granted.", "Use /help to see all commands."]);
 });
 
 bot.command("autourl", async (ctx) => {
